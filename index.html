@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Code, Eye, Download, Settings, Cpu, Globe, Monitor, Smartphone, Moon, Sun, Loader2, Copy, Save, CheckCircle, AlertCircle, Terminal } from 'lucide-react';
+import { Play, Code, Eye, Download, Settings, Cpu, Globe, Monitor, Smartphone, Moon, Sun, Loader2, Copy, Save, AlertCircle, Terminal, Zap, CornerDownRight, X } from 'lucide-react';
 
 const AgencyDashboard = () => {
   // --- STATE MANAGEMENT ---
@@ -25,17 +25,17 @@ const AgencyDashboard = () => {
   // --- CONSTANTS ---
   const MODELS = {
     gemini: [
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Fast & Free)' },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (High Intelligence)' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Fast & Cost-Effective)' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Highest Quality)' },
     ],
     openai: [
       { id: 'gpt-4o', name: 'GPT-4o (Best Quality)' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast & Cheap)' },
       { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo (Legacy)' },
     ],
     groq: [
       { id: 'llama3-70b-8192', name: 'Llama 3 70B (Open Source Power)' },
-      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B (Long Context)' },
+      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B (Long Context & Speed)' },
     ]
   };
 
@@ -44,14 +44,14 @@ const AgencyDashboard = () => {
     Your goal is to generate COMPLETE, production-ready, single-file HTML websites.
     
     CRITICAL RULES:
-    1. RETURN ONLY CODE. No markdown backticks (like \`\`\`html), no explanations.
+    1. RETURN ONLY CODE. Do not include markdown backticks (like \`\`\`html), code comments outside of the HTML body, or any explanations.
     2. The output must be a valid HTML5 file containing all CSS (use Tailwind via CDN) and JS.
     3. Use Tailwind CSS: <script src="https://cdn.tailwindcss.com"></script>
-    4. Use FontAwesome: <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    4. Use FontAwesome icons: <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     5. Make it visually stunning, modern, and fully responsive (mobile-first).
     6. Use https://source.unsplash.com/random/800x600/?{keyword} for images.
     7. Ensure all interactive elements (buttons, mobile menus) actually work with embedded JavaScript.
-    8. Do NOT use alert(). Use custom modals or console logs.
+    8. Do NOT use alert() or window.alert().
   `;
 
   // --- INITIALIZATION ---
@@ -63,26 +63,41 @@ const AgencyDashboard = () => {
     if (savedKeys) setApiKeys(JSON.parse(savedKeys));
     if (savedHistory) setHistory(JSON.parse(savedHistory));
     if (savedTheme) setTheme(savedTheme);
+    
+    // Set default model based on initial provider
+    const initialProvider = localStorage.getItem('agency_provider') || 'gemini';
+    setSelectedProvider(initialProvider);
+    setSelectedModel(MODELS[initialProvider][0].id);
   }, []);
 
   useEffect(() => {
     localStorage.setItem('agency_theme', theme);
   }, [theme]);
+  
+  useEffect(() => {
+    // When provider changes, select the first model in that provider's list
+    const newModel = MODELS[selectedProvider][0].id;
+    setSelectedModel(newModel);
+    localStorage.setItem('agency_provider', selectedProvider);
+  }, [selectedProvider]);
+
 
   // --- HANDLERS ---
   const saveKeys = () => {
     localStorage.setItem('agency_api_keys', JSON.stringify(apiKeys));
-    setStatusMsg('API Keys Saved!');
+    setStatusMsg('API Keys Saved Successfully!');
     setTimeout(() => setStatusMsg(''), 2000);
+  };
+
+  const cleanOutput = (text) => {
+    // Cleans up AI output if markdown formatting slips in
+    let cleaned = text.replace(/```html/g, '').replace(/```/g, '').trim();
+    // Remove leading/trailing newlines
+    return cleaned.trim();
   };
 
   const handleInputChange = (provider, value) => {
     setApiKeys(prev => ({ ...prev, [provider]: value }));
-  };
-
-  const cleanOutput = (text) => {
-    // Removes markdown formatting if the AI ignores the system prompt
-    return text.replace(/```html/g, '').replace(/```/g, '').trim();
   };
 
   // --- API CALLS ---
@@ -143,15 +158,19 @@ const AgencyDashboard = () => {
 
   const handleGenerate = async () => {
     if (!apiKeys[selectedProvider]) {
-      alert(`Please enter your ${selectedProvider.toUpperCase()} API Key in Settings.`);
+      setStatusMsg(`Error: Please enter your ${selectedProvider.toUpperCase()} API Key in Settings.`);
       setShowSettings(true);
       return;
     }
-    if (!prompt) return;
+    if (!prompt) {
+        setStatusMsg('Error: Please enter a project brief.');
+        return;
+    }
 
     setLoading(true);
     setGeneratedCode('');
-    setStatusMsg(`Generating with ${selectedModel}...`);
+    setView('preview');
+    setStatusMsg(`Forging website with ${selectedModel}...`);
 
     try {
       let code = '';
@@ -162,38 +181,67 @@ const AgencyDashboard = () => {
       setGeneratedCode(code);
       
       // Update History
-      const newHistory = [{ id: Date.now(), prompt, code, model: selectedModel, date: new Date().toLocaleDateString() }, ...history].slice(0, 15);
+      const newHistory = [{ id: Date.now(), prompt, code, model: selectedModel, provider: selectedProvider, date: new Date().toLocaleDateString() }, ...history].slice(0, 15);
       setHistory(newHistory);
       localStorage.setItem('agency_history', JSON.stringify(newHistory));
       setStatusMsg('Generation Complete!');
 
     } catch (error) {
-      console.error(error);
-      setGeneratedCode(`<!-- Error: ${error.message} -->`);
-      setStatusMsg('Error Generating Code');
+      console.error("API Call Failed:", error);
+      setGeneratedCode(`<!-- Error generating code. Check console for details. API returned: ${error.message} -->`);
+      setStatusMsg(`Error: Generation Failed. Check Key/Quota.`);
     } finally {
       setLoading(false);
-      setTimeout(() => setStatusMsg(''), 3000);
+      setTimeout(() => setStatusMsg(''), 5000);
     }
   };
 
   const downloadCode = () => {
+    if (!generatedCode) return;
     const blob = new Blob([generatedCode], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `project_${Date.now()}.html`;
+    a.download = `client_site_${Date.now()}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    setStatusMsg('HTML File Downloaded!');
   };
+
+  const loadFromHistory = (item) => {
+    setPrompt(item.prompt);
+    setGeneratedCode(item.code);
+    setSelectedProvider(item.provider);
+    setSelectedModel(item.model);
+    setStatusMsg(`Loaded project from history: ${item.date}`);
+  };
+  
+  const removeHistoryItem = (id) => {
+    const updatedHistory = history.filter(item => item.id !== id);
+    setHistory(updatedHistory);
+    localStorage.setItem('agency_history', JSON.stringify(updatedHistory));
+    setStatusMsg('Project removed from history.');
+  };
+
+  const ModelSelector = ({ provider }) => (
+    <select 
+      value={selectedModel}
+      onChange={(e) => setSelectedModel(e.target.value)}
+      className={`w-full p-2.5 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}
+    >
+      {MODELS[provider]?.map(m => (
+        <option key={m.id} value={m.id}>{m.name}</option>
+      ))}
+    </select>
+  );
 
   // --- UI COMPONENTS ---
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-slate-900'} font-sans flex flex-col transition-colors duration-300`}>
       
       {/* Header */}
-      <header className={`px-6 py-3 border-b flex items-center justify-between ${theme === 'dark' ? 'border-slate-800 bg-slate-900/80 backdrop-blur' : 'border-gray-200 bg-white/80 backdrop-blur'}`}>
+      <header className={`px-6 py-3 border-b flex items-center justify-between sticky top-0 z-30 ${theme === 'dark' ? 'border-slate-800 bg-slate-900/90 backdrop-blur-sm' : 'border-gray-200 bg-white/90 backdrop-blur-sm'}`}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Cpu className="text-white w-5 h-5" />
@@ -205,10 +253,17 @@ const AgencyDashboard = () => {
         </div>
         
         <div className="flex items-center gap-3">
-          {statusMsg && <span className="text-xs font-medium text-emerald-500 animate-pulse hidden md:block">{statusMsg}</span>}
+          {statusMsg && (
+            <div className={`flex items-center gap-2 p-1.5 rounded-full text-xs font-medium ${statusMsg.startsWith('Error') ? 'text-red-500' : 'text-emerald-500'} hidden md:flex`}>
+              {statusMsg.startsWith('Error') ? <AlertCircle size={14} /> : <Zap size={14} />}
+              <span>{statusMsg}</span>
+            </div>
+          )}
+          
           <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-gray-100 text-slate-600'}`}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+          
           <button 
             onClick={() => setShowSettings(!showSettings)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${showSettings ? 'bg-blue-600 text-white' : (theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700' : 'bg-white border border-gray-200 hover:bg-gray-50')}`}
@@ -221,49 +276,31 @@ const AgencyDashboard = () => {
 
       <main className="flex-1 flex overflow-hidden">
         
-        {/* Left Sidebar */}
-        <div className={`w-80 md:w-96 flex flex-col border-r z-20 shadow-2xl overflow-y-auto ${theme === 'dark' ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+        {/* Left Sidebar - Controls */}
+        <div className={`w-full max-w-[360px] flex flex-col border-r z-20 shadow-2xl overflow-y-auto ${theme === 'dark' ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
           
           <div className="p-5 space-y-6">
             
-            {/* Settings Panel */}
+            {/* Settings Modal/Panel */}
             {showSettings && (
-              <div className={`p-4 rounded-xl border space-y-4 animate-in slide-in-from-top-2 ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-blue-50 border-blue-100'}`}>
+              <div className={`p-4 rounded-xl border space-y-4 shadow-xl ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-blue-50 border-blue-100'}`}>
                 <h3 className="text-xs font-bold uppercase tracking-wider opacity-60 flex items-center gap-2">
                   <Terminal size={12} /> API Configuration
                 </h3>
                 
                 <div className="space-y-3">
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase opacity-50 mb-1 block">Google Gemini Key</label>
-                    <input 
-                      type="password" 
-                      value={apiKeys.gemini}
-                      onChange={(e) => handleInputChange('gemini', e.target.value)}
-                      placeholder="AI Studio Key"
-                      className={`w-full p-2 text-xs rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase opacity-50 mb-1 block">OpenAI Key</label>
-                    <input 
-                      type="password" 
-                      value={apiKeys.openai}
-                      onChange={(e) => handleInputChange('openai', e.target.value)}
-                      placeholder="sk-..."
-                      className={`w-full p-2 text-xs rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase opacity-50 mb-1 block">Groq Key</label>
-                    <input 
-                      type="password" 
-                      value={apiKeys.groq}
-                      onChange={(e) => handleInputChange('groq', e.target.value)}
-                      placeholder="gsk-..."
-                      className={`w-full p-2 text-xs rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
-                    />
-                  </div>
+                  {Object.keys(apiKeys).map(provider => (
+                    <div key={provider}>
+                      <label className="text-[10px] font-semibold uppercase opacity-50 mb-1 block">{provider.toUpperCase()} Key</label>
+                      <input 
+                        type="password" 
+                        value={apiKeys[provider]}
+                        onChange={(e) => handleInputChange(provider, e.target.value)}
+                        placeholder={`Enter your ${provider} key...`}
+                        className={`w-full p-2 text-xs rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
+                      />
+                    </div>
+                  ))}
                 </div>
                 
                 <button 
@@ -272,6 +309,12 @@ const AgencyDashboard = () => {
                 >
                   <Save size={12} /> Save Keys
                 </button>
+                <button 
+                    onClick={() => setShowSettings(false)}
+                    className="w-full py-1 text-xs font-medium opacity-60 hover:opacity-100"
+                >
+                    <X size={12} className="inline mr-1" /> Close Settings
+                </button>
               </div>
             )}
 
@@ -279,12 +322,12 @@ const AgencyDashboard = () => {
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider opacity-60 mb-2 block">AI Provider</label>
-                <div className="flex p-1 rounded-lg bg-slate-200/50 dark:bg-slate-800">
+                <div className="flex p-1 rounded-xl bg-slate-200/50 dark:bg-slate-800">
                   {['gemini', 'openai', 'groq'].map(p => (
                     <button
                       key={p}
-                      onClick={() => { setSelectedProvider(p); setSelectedModel(MODELS[p][0].id); }}
-                      className={`flex-1 py-1.5 text-xs font-semibold capitalize rounded-md transition-all ${selectedProvider === p ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'opacity-60 hover:opacity-100'}`}
+                      onClick={() => setSelectedProvider(p)}
+                      className={`flex-1 py-2 text-sm font-semibold capitalize rounded-lg transition-all ${selectedProvider === p ? 'bg-white dark:bg-slate-700 shadow-md text-blue-600 dark:text-blue-400' : 'opacity-60 hover:opacity-100'}`}
                     >
                       {p}
                     </button>
@@ -294,15 +337,7 @@ const AgencyDashboard = () => {
 
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider opacity-60 mb-2 block">Model</label>
-                <select 
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className={`w-full p-2.5 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}
-                >
-                  {MODELS[selectedProvider]?.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                <ModelSelector provider={selectedProvider} />
               </div>
             </div>
 
@@ -314,34 +349,44 @@ const AgencyDashboard = () => {
               <textarea 
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe the website you want to build..."
+                placeholder="Describe the client's website requirements here..."
                 className={`w-full h-40 p-4 rounded-xl border resize-none focus:ring-2 focus:ring-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-800 border-slate-700 placeholder-slate-500' : 'bg-white border-gray-200 placeholder-gray-400'}`}
               />
             </div>
 
             <button 
               onClick={handleGenerate}
-              disabled={loading || !prompt}
-              className={`w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all transform active:scale-95 ${loading ? 'bg-slate-700 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/25'}`}
+              disabled={loading || !prompt || !apiKeys[selectedProvider]}
+              className={`w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all transform active:scale-95 ${loading ? 'bg-slate-700 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-xl shadow-blue-500/25'}`}
             >
               {loading ? <Loader2 className="animate-spin" /> : <Play fill="currentColor" />}
-              {loading ? 'Forging Website...' : 'Generate Website'}
+              {loading ? 'Forging Code...' : 'Generate Website'}
             </button>
 
             {/* History List */}
             {history.length > 0 && (
               <div className="pt-4 border-t dark:border-slate-800">
-                <h3 className="text-xs font-bold uppercase tracking-wider opacity-50 mb-3">Recent Projects</h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
+                <h3 className="text-xs font-bold uppercase tracking-wider opacity-50 mb-3">Recent Projects (Click to Load)</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {history.map((item) => (
-                    <button 
-                      key={item.id}
-                      onClick={() => { setPrompt(item.prompt); setGeneratedCode(item.code); }}
-                      className={`w-full text-left p-2.5 rounded-lg text-xs border transition-all flex justify-between group ${theme === 'dark' ? 'hover:bg-slate-800 border-transparent hover:border-slate-700' : 'hover:bg-white border-transparent hover:border-gray-200 hover:shadow-sm'}`}
-                    >
-                      <span className="truncate flex-1 opacity-80">{item.prompt}</span>
-                      <span className="text-[10px] opacity-40 ml-2 group-hover:text-blue-500">{item.model.split('-')[0]}</span>
-                    </button>
+                    <div key={item.id} className="flex items-center justify-between p-2.5 rounded-lg text-xs border transition-all group dark:border-slate-800 dark:hover:bg-slate-800 hover:bg-gray-100">
+                        <button 
+                          onClick={() => loadFromHistory(item)}
+                          className="flex-1 text-left flex items-center gap-2 truncate"
+                          title={item.prompt}
+                        >
+                            <CornerDownRight size={14} className="opacity-50 text-blue-500 flex-shrink-0" />
+                            <span className="truncate flex-1">{item.prompt}</span>
+                            <span className="text-[10px] opacity-40 ml-2 uppercase font-mono flex-shrink-0">{item.provider}</span>
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); removeHistoryItem(item.id); }}
+                            className="p-1 rounded-full text-red-400/50 hover:text-red-500 transition-all"
+                            title="Remove"
+                        >
+                            <Trash2 size={12} />
+                        </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -365,19 +410,19 @@ const AgencyDashboard = () => {
 
             {view === 'preview' && (
               <div className="flex items-center gap-2">
-                 <button onClick={() => setDeviceView('desktop')} className={`p-2 rounded-md transition-all ${deviceView === 'desktop' ? 'text-blue-500 bg-blue-500/10' : 'opacity-40 hover:opacity-100'}`}><Monitor size={18} /></button>
-                 <button onClick={() => setDeviceView('mobile')} className={`p-2 rounded-md transition-all ${deviceView === 'mobile' ? 'text-blue-500 bg-blue-500/10' : 'opacity-40 hover:opacity-100'}`}><Smartphone size={18} /></button>
+                 <button onClick={() => setDeviceView('desktop')} className={`p-2 rounded-md transition-all ${deviceView === 'desktop' ? 'text-blue-500 bg-blue-500/10' : 'opacity-40 hover:opacity-100'}`} title="Desktop View"><Monitor size={18} /></button>
+                 <button onClick={() => setDeviceView('mobile')} className={`p-2 rounded-md transition-all ${deviceView === 'mobile' ? 'text-blue-500 bg-blue-500/10' : 'opacity-40 hover:opacity-100'}`} title="Mobile View"><Smartphone size={18} /></button>
               </div>
             )}
 
             <div className="flex items-center gap-2">
               {generatedCode && (
                 <>
-                  <button onClick={() => { navigator.clipboard.writeText(generatedCode); setStatusMsg('Copied!'); setTimeout(() => setStatusMsg(''), 1000); }} className={`p-2 rounded-md border transition-all ${theme === 'dark' ? 'border-slate-700 hover:bg-slate-800' : 'border-gray-200 hover:bg-white'}`} title="Copy Code">
+                  <button onClick={() => { navigator.clipboard.writeText(generatedCode); setStatusMsg('Code Copied!'); setTimeout(() => setStatusMsg(''), 1000); }} className={`p-2 rounded-md border transition-all ${theme === 'dark' ? 'border-slate-700 hover:bg-slate-800' : 'border-gray-200 hover:bg-white'}`} title="Copy Code">
                     <Copy size={16} />
                   </button>
                   <button onClick={downloadCode} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-all">
-                    <Download size={16} /> <span className="hidden sm:inline">Export</span>
+                    <Download size={16} /> <span className="hidden sm:inline">Export HTML</span>
                   </button>
                 </>
               )}
@@ -391,16 +436,17 @@ const AgencyDashboard = () => {
                 <div className="w-24 h-24 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Cpu className="w-10 h-10" />
                 </div>
-                <h3 className="text-2xl font-bold mb-2">Awaiting Instructions</h3>
-                <p className="max-w-xs mx-auto text-sm">Select your model, enter a prompt, and let the AI build your vision.</p>
+                <h3 className="text-2xl font-bold mb-2">Ready to Forge</h3>
+                <p className="max-w-xs mx-auto text-sm">Configure your API keys in Settings and describe your client's project to begin generating.</p>
               </div>
             ) : (
               view === 'preview' ? (
-                <div className={`transition-all duration-500 ease-in-out shadow-2xl overflow-hidden bg-white ${deviceView === 'mobile' ? 'w-[375px] h-[667px] rounded-[3rem] border-8 border-slate-800' : 'w-full h-full rounded-lg border border-slate-700/50'}`}>
-                  <iframe title="preview" srcDoc={generatedCode} className="w-full h-full" sandbox="allow-scripts allow-modals" />
+                <div className={`transition-all duration-500 ease-in-out shadow-2xl overflow-hidden bg-white ${deviceView === 'mobile' ? 'w-[375px] h-full max-h-[750px] rounded-[3rem] border-8 border-slate-800' : 'w-full h-full rounded-lg border border-slate-700/50'}`}>
+                  {/* The sandbox attribute is crucial for security when rendering user/AI generated code */}
+                  <iframe title="preview" srcDoc={generatedCode} className="w-full h-full" sandbox="allow-scripts allow-modals allow-forms" />
                 </div>
               ) : (
-                <div className="w-full h-full rounded-lg border overflow-hidden shadow-2xl text-left relative group">
+                <div className="w-full h-full rounded-lg border overflow-hidden shadow-2xl text-left relative">
                   <textarea 
                     value={generatedCode} 
                     readOnly 
@@ -418,5 +464,4 @@ const AgencyDashboard = () => {
 };
 
 export default AgencyDashboard;
-
 
