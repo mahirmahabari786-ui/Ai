@@ -1,5 +1,5 @@
 {
-  "name": "agentforge-single-folder",
+  "name": "webforge-app",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
