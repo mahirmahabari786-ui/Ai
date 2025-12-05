@@ -1,0 +1,45 @@
+/* Custom 3D / premium styles. Keep after Tailwind so utility classes still apply. */
+:root{
+  --glass-border: rgba(255,255,255,0.06);
+  --glass-bg: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+}
+
+/* glass and neumorphism */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px) saturate(140%);
+}
+.neumorph { box-shadow: 14px 14px 40px rgba(2,6,23,0.6), -8px -8px 24px rgba(255,255,255,0.02); }
+
+.rounded-3xl { border-radius: 20px; }
+
+/* tilt / 3D card */
+.card-tilt {
+  transform-style: preserve-3d;
+  transition: transform 300ms cubic-bezier(.2,.9,.25,1), box-shadow 300ms;
+  will-change: transform;
+}
+.card-tilt:hover { transform: translateY(-10px) rotateX(3deg) rotateY(-3deg) scale(1.01); box-shadow: 28px 28px 60px rgba(2,6,23,0.7); }
+
+/* floating decorator */
+@keyframes floaty {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+.logo { animation: floaty 6s ease-in-out infinite; }
+
+/* small monospace helper */
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace; }
+
+/* truncated multi-line */
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* responsive preview sizing */
+@media (max-width: 1024px) {
+  .logo { width: 48px; height: 48px; }
+  .rounded-3xl { border-radius: 16px; }
+}
+
+/* subtle focus states for accessibility */
+select:focus, textarea:focus, button:focus, input:focus { outline: 2px solid rgba(99,102,241,0.18); outline-offset: 2px; }
